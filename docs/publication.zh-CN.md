@@ -13,8 +13,8 @@
 
 | 项目 | 结果 |
 | --- | --- |
-| 源码提交 | `75e927166b8fa7d8c6b1eb825588ac74ce4a757f`（初始发布验证） |
-| Actions | [运行 40091537627](https://github.com/qaq112233/mstodo-go/actions/runs/40091537627)，全部 job 成功 |
+| 源码提交 | `35eded990fd04cfdeb50f0d584a6eb0fe072ae4e` |
+| Actions | [运行 40096882870](https://github.com/qaq112233/mstodo-go/actions/runs/40096882870)，全部 job 成功 |
 | 自动化 | 42 个顶层 Go 测试、竞争检测、vet、Compose 配置检查通过 |
 | Go 构建 | Linux amd64 和 arm64 静态程序、各自 SHA-256 与 MIT 许可已上传为 Actions artifacts，保存 14 天 |
 | Docker 构建 | 双架构构建及 GHCR 推送成功 |
@@ -25,10 +25,10 @@
 首次镜像的固定引用：
 
 ```text
-ghcr.io/qaq112233/mstodo-go@sha256:0c261c3298c13ec52421fa2d3af7db73dbb89280861bd2f574fb8549ac3fb988
+ghcr.io/qaq112233/mstodo-go@sha256:13fdf00c66609836b0359aea2a46ba1d8c3671b964c6b5bc75958d22b9759ebe
 ```
 
-首个正式版本使用 `v0.1.0` Git 标签；其 GHCR 主要标签为 `0.1.0` 和 `latest`。后续 main 或版本标签推送可能更新 `latest`；部署时可以使用 `0.1.0` 或固定 digest。
+`v0.1.0` GitHub Release 和 GHCR 的 `0.1.0`、`latest` 标签均指向这个 digest。后续 main 或版本标签推送可能更新 `latest`；部署时可以使用 `0.1.0` 或固定 digest。
 
 索引还包含两个带 attestation-manifest 标记的构建证明条目，显示为 unknown/unknown；它们不是额外运行架构。arm64 镜像已构建发布，但没有在真实 ARM 设备上启动。生产 HTTPS、墨水屏和最终 MCP 产品客户端仍未验收。
 
