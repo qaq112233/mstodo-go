@@ -1,0 +1,12 @@
+/data/
+/mstodo
+*.db
+*.db-wal
+*.db-shm
+.env
+.env.*
+!.env.example
+.dev.vars
+/.playwright-mcp/
+/dist/
+*.log

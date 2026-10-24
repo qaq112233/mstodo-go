@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Microsoft To Do · 设置</title>
+<style>body{font:16px/1.65 system-ui,sans-serif;background:#f5f6f8;color:#202938;margin:0}main{max-width:850px;margin:32px auto;padding:24px;background:white;border-radius:12px}h1{margin-top:0}section{border-top:1px solid #ddd;padding:20px 0}label{display:block;margin:12px 0}input,select{display:block;padding:9px;box-sizing:border-box;width:100%;max-width:650px;font:inherit}button{padding:9px 18px;font:inherit;cursor:pointer}code,pre{overflow-wrap:anywhere;white-space:pre-wrap;background:#f0f2f5}pre{padding:12px}small{color:#566}form{margin:14px 0}.notice{padding:12px;background:#fff4d0}a{color:#175bc1}</style>
+<main><h1>Microsoft To Do 设置</h1><p>单账号 · 本地 SQLite · 任务缓存 180 秒</p>
+{{if .Message}}<p class="notice">{{.Message}}</p>{{end}}
+<section><h2>1. 注册与保存微软应用</h2>
+<p>在 Microsoft Entra 应用注册中添加“Web”重定向地址：</p><pre>{{.Callback}}</pre>
+<p>Graph 委托权限：<code>Tasks.ReadWrite offline_access User.Read</code>。My Day、移动和排序还需要 Office 365 Exchange Online 的 <code>Tasks.ReadWrite</code> 委托权限，详见部署教程。已有应用可以增加此回调地址。</p>
+<form method="post" action="{{.Admin}}/save"><input type="hidden" name="csrf" value="{{.Settings.CSRF}}">
+<label>Tenant（个人账号通常使用 common 或 consumers）<input name="tenant" value="{{.Settings.Tenant}}" required autocomplete="off"></label>
+<label>Client ID<input name="clientId" value="{{.Settings.ClientID}}" required autocomplete="off"></label>
+<label>Client secret（留空保留已保存值）<input type="password" name="clientSecret" autocomplete="new-password"></label>
+<label>预期微软账号邮箱<input name="expectedAccount" type="email" value="{{.Settings.ExpectedAccount}}" required></label>
+<label>IANA 时区<input name="timezone" value="{{.Settings.Timezone}}" required></label>
+<label>访问模式<select name="authMode"><option value="bearer" {{if eq .Settings.AuthMode "bearer"}}selected{{end}}>Bearer token（默认）</option><option value="path" {{if eq .Settings.AuthMode "path"}}selected{{end}}>秘密路径</option><option value="none" {{if eq .Settings.AuthMode "none"}}selected{{end}}>无验证（主动公开或由外层验证）</option></select></label>
+<small>无验证模式允许能访问地址的人读写任务。管理员设置仍使用独立秘密链接。</small>
+<label>My Day 最大分页数<input name="myDayMaxPages" type="number" min="1" max="1000" value="{{.Settings.MyDayMaxPages}}" required></label>
+<button>保存设置</button><p><small>应用信息或预期账号改变会清除旧授权和可重建缓存，需要重新连接微软。</small></p></form></section>
+<section><h2>2. 授权与连接状态</h2>
+{{if .Account.ID}}<p>已连接：{{.Account.Name}}（{{.Account.Email}}）</p>{{else}}<p>尚未授权</p>{{end}}
+{{if .Account.Reauth}}<p class="notice">授权需要更新，请重新连接微软。</p>{{end}}{{if .Account.SubstrateConsent}}<p class="notice">My Day 权限需要重新同意；Graph 可能仍可使用。</p>{{end}}
+<form method="post" action="{{.Admin}}/connect"><input type="hidden" name="csrf" value="{{.Settings.CSRF}}"><button>连接 / 重新授权微软</button></form>
+<form method="post" action="{{.Admin}}/probe"><input type="hidden" name="csrf" value="{{.Settings.CSRF}}"><button>分别测试 Graph 和 My Day（只读）</button></form>
+<p>此页面打开时不请求微软任务；点击测试才读取。My Day 以 feed 成员为准，默认包含已完成任务。</p>
+<details><summary>按清单缓存状态</summary><pre>{{.Sync}}</pre></details></section>
+<section><h2>3. 墨水屏与 MCP</h2><p>展开后包含访问凭据，请妥善保存。</p><details><summary>显示地址、凭据与调用示例</summary>
+<p>墨水屏 API</p><pre>{{.Prefix}}/api/v1/myday</pre><p>MCP Streamable HTTP</p><pre>{{.Prefix}}/mcp</pre>
+{{if eq .Settings.AuthMode "bearer"}}<p>两个入口使用同一请求头：</p><pre>Authorization: Bearer {{.Settings.Bearer}}</pre>
+<pre>curl --fail-with-body -H 'Authorization: Bearer {{.Settings.Bearer}}' '{{.Prefix}}/api/v1/myday'</pre>{{else}}
+<pre>curl --fail-with-body '{{.Prefix}}/api/v1/myday'</pre>{{end}}
+<p>MCP 客户端需支持手动设置地址及 Bearer 请求头。首版不提供 MCP OAuth 服务。开启 Cloudflare Access 服务验证时，调用端还需添加它要求的凭据。</p>
+<p>墨水屏遇到错误应保留上次成功画面；不要将错误当成空列表。HTTPS 保护传输，访问模式控制谁可以读写。</p></details>
+<form method="post" action="{{.Admin}}/rotate"><input type="hidden" name="csrf" value="{{.Settings.CSRF}}"><button>轮换业务 token 与秘密路径</button></form>
+<form method="post" action="{{.Admin}}/rotate"><input type="hidden" name="csrf" value="{{.Settings.CSRF}}"><input type="hidden" name="target" value="admin"><button>同时轮换管理员链接</button><small>提交后将跳转到新链接，请重新收藏。</small></form>
+<p>附件上传下载留作后续；现有附件随原任务移动。My Day、移动和排序依赖微软内部接口，真实部署和最终 MCP 客户端需独立验收。</p></section></main></html>

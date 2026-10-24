@@ -1,0 +1,11 @@
+.env
+data
+*.db*
+mstodo
+**/*_test.go
+.git
+.github
+docs
+dist
+.playwright-mcp
+.env.*
