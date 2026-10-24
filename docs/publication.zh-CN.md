@@ -9,11 +9,11 @@
 
 ## 首次发布
 
-2026-10-24 已完成首次真实发布：
+2026-10-24 已完成首个开发版 `0.1.0` 的真实发布：
 
 | 项目 | 结果 |
 | --- | --- |
-| 源码提交 | `75e927166b8fa7d8c6b1eb825588ac74ce4a757f` |
+| 源码提交 | `75e927166b8fa7d8c6b1eb825588ac74ce4a757f`（初始发布验证） |
 | Actions | [运行 40091537627](https://github.com/qaq112233/mstodo-go/actions/runs/40091537627)，全部 job 成功 |
 | 自动化 | 42 个顶层 Go 测试、竞争检测、vet、Compose 配置检查通过 |
 | Go 构建 | Linux amd64 和 arm64 静态程序、各自 SHA-256 与 MIT 许可已上传为 Actions artifacts，保存 14 天 |
@@ -28,7 +28,7 @@
 ghcr.io/qaq112233/mstodo-go@sha256:0c261c3298c13ec52421fa2d3af7db73dbb89280861bd2f574fb8549ac3fb988
 ```
 
-对应标签为 `latest` 和 `sha-75e927166b8fa7d8c6b1eb825588ac74ce4a757f`。后续 main 推送可能更新 latest；以上 digest 和提交标签用于识别本次发布。发布记录自身的文档提交不改变已经验证的应用源码。
+首个正式版本使用 `v0.1.0` Git 标签；其 GHCR 主要标签为 `0.1.0` 和 `latest`。后续 main 或版本标签推送可能更新 `latest`；部署时可以使用 `0.1.0` 或固定 digest。
 
 索引还包含两个带 attestation-manifest 标记的构建证明条目，显示为 unknown/unknown；它们不是额外运行架构。arm64 镜像已构建发布，但没有在真实 ARM 设备上启动。生产 HTTPS、墨水屏和最终 MCP 产品客户端仍未验收。
 
@@ -36,9 +36,9 @@ ghcr.io/qaq112233/mstodo-go@sha256:0c261c3298c13ec52421fa2d3af7db73dbb89280861bd
 
 ## 发布规则
 
-workflow 先运行测试、竞争检测、vet 和 Compose 配置检查，再构建两个架构的静态程序；只有成功后才发布镜像。镜像发布使用权限限于当前仓库的 `GITHUB_TOKEN`，无须在仓库配置个人 GHCR 密钥。
+workflow 先运行测试、竞争检测、vet 和 Compose 配置检查，再构建两个架构的静态程序；只有成功后才发布镜像。镜像发布使用权限限于当前仓库的 `GITHUB_TOKEN`，无须在仓库配置个人 GHCR 密钥。首个版本以 `v0.1.0` 发布，镜像标签为 `0.1.0` 和 `latest`。
 
-PR 仅执行测试与程序构建。main、`v*` 标签和手动运行可发布；镜像标签包括 main 的 latest、提交 SHA，以及版本标签对应的 semver 标签。Dockerfile 在构建平台交叉编译两个目标，scratch 运行层不执行目标架构命令，无须 QEMU。
+PR 仅执行测试与程序构建。main、`v*` 标签和手动运行可发布；main 与版本标签都会更新 `latest`，版本标签额外提供对应的 semver 标签。Dockerfile 在构建平台交叉编译两个目标，scratch 运行层不执行目标架构命令，无须 QEMU。
 
 发布后 workflow 会检查真实镜像索引至少包含 linux/amd64 和 linux/arm64，并运行已发布 amd64 镜像的健康检查；arm64 的实际设备运行仍需单独验收。
 
