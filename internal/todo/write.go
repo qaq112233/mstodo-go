@@ -48,10 +48,14 @@ func (s *Service) mutate(ctx context.Context, v store.Snapshot, op Operation) (R
 	if err = s.Store.Invalidate(ctx, v.Epoch, affected, roster); err != nil {
 		return Result{}, err
 	}
-	v, err = s.Store.Snapshot(ctx)
+	current, err = s.Store.Snapshot(ctx)
 	if err != nil {
 		return Result{}, err
 	}
+	if current.Epoch != v.Epoch {
+		return Result{}, store.ErrChanged
+	}
+	v = current
 	result := Result{Status: 200}
 	var data Object
 	switch op.Kind {

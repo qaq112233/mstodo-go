@@ -21,11 +21,7 @@ func (s *Service) syncList(ctx context.Context, v store.Snapshot, list string, r
 		return nil
 	}
 	_, err = s.flight(ctx, fmt.Sprintf("sync:%d:%d:%s", v.Epoch, v.Revision, list), func(root context.Context) (any, error) {
-		deadline := time.Now().Add(60 * time.Second)
-		if d, ok := ctx.Deadline(); ok && d.Before(deadline) {
-			deadline = d
-		}
-		c, cancel := context.WithDeadline(root, deadline)
+		c, cancel := context.WithTimeout(root, 60*time.Second)
 		defer cancel()
 		state, err := s.Store.Sync(c, v.Epoch, list)
 		if err != nil {

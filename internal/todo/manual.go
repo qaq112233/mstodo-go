@@ -36,7 +36,7 @@ func (s *Service) manual(ctx context.Context, v store.Snapshot, op Operation, re
 			return nil, e
 		}
 		sort.SliceStable(rows, func(i, j int) bool {
-			a, b := str(rows[i]["OrderDateTime"]), str(rows[j]["OrderDateTime"])
+			a, b := timeOrderKey(rows[i]["OrderDateTime"]), timeOrderKey(rows[j]["OrderDateTime"])
 			if a != b {
 				return a > b
 			}

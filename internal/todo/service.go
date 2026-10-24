@@ -172,11 +172,9 @@ func (s *Service) cached(ctx context.Context, v store.Snapshot, key string, refr
 	value, err := s.flight(ctx, flightKey, func(root context.Context) (any, error) {
 		// Demand initiated, bounded work. It stops at the scope deadline and never
 		// schedules another task sync; token refresh has its own persistence lifetime.
-		deadline := time.Now().Add(budget)
-		if d, ok := ctx.Deadline(); ok && d.Before(deadline) {
-			deadline = d
-		}
-		shared, cancel := context.WithDeadline(root, deadline)
+		// Each caller owns its deadline. Keep shared work alive for the other
+		// waiters until the scope budget expires or the last caller leaves.
+		shared, cancel := context.WithTimeout(root, budget)
 		defer cancel()
 		current, err := s.Store.Snapshot(shared)
 		if err != nil {
@@ -235,10 +233,18 @@ func (s *Service) Call(ctx context.Context, op Operation) (result Result, callEr
 	}
 	ctx, cancel := context.WithTimeout(ctx, budget)
 	defer cancel()
+	var epoch int64
 	for attempt := 0; attempt < 3; attempt++ {
 		v, err := s.Store.Snapshot(ctx)
 		if err != nil {
 			return Result{}, err
+		}
+		if attempt == 0 {
+			epoch = v.Epoch
+		} else if v.Epoch != epoch {
+			// A revision retry may refresh data, but must never rebind the
+			// original operation (including writes) to a new authorization.
+			return Result{}, microsoft.E(409, "account_changed")
 		}
 		if s.dirty.Load() {
 			if err = s.Store.Invalidate(ctx, v.Epoch, nil, true); err != nil {
@@ -622,7 +628,7 @@ func (s *Service) myday(ctx context.Context, v store.Snapshot, q url.Values, ref
 }
 func compareTasks(a, b Object) bool {
 	for _, key := range []string{"committedOrder", "orderDateTime"} {
-		x, y := str(a[key]), str(b[key])
+		x, y := timeOrderKey(a[key]), timeOrderKey(b[key])
 		if x != y {
 			return x > y
 		}
@@ -632,6 +638,17 @@ func compareTasks(a, b Object) bool {
 	}
 	return str(a["id"]) < str(b["id"])
 }
+
+// RFC3339 strings are only lexically ordered when their offsets and fractional
+// precision agree. Normalize comparison keys without changing returned fields.
+func timeOrderKey(v any) string {
+	raw := str(v)
+	if t, err := time.Parse(time.RFC3339Nano, raw); err == nil {
+		return t.UTC().Format("2006-01-02T15:04:05.000000000Z")
+	}
+	return raw
+}
+
 func graphURL(op Operation) string {
 	raw := microsoft.GraphBase + "/me/todo/lists"
 	if op.ListID != "" {
@@ -674,11 +691,11 @@ func (s *Service) checklist(ctx context.Context, v store.Snapshot, op Operation)
 		m["orderDateTime"] = orders[str(m["id"])]
 	}
 	sort.SliceStable(items, func(i, j int) bool {
-		a, b := str(items[i]["orderDateTime"]), str(items[j]["orderDateTime"])
+		a, b := timeOrderKey(items[i]["orderDateTime"]), timeOrderKey(items[j]["orderDateTime"])
 		if a != b {
 			return a > b
 		}
-		a, b = str(items[i]["createdDateTime"]), str(items[j]["createdDateTime"])
+		a, b = timeOrderKey(items[i]["createdDateTime"]), timeOrderKey(items[j]["createdDateTime"])
 		if a != b {
 			return a < b
 		}

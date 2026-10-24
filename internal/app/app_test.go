@@ -348,3 +348,61 @@ func TestNativeNoReferrerFormStillRequiresCSRF(t *testing.T) {
 		})
 	}
 }
+
+func TestAdminRotationInvalidatesPendingOAuth(t *testing.T) {
+	var upstream atomic.Int32
+	f := testutil.New(t, func(w http.ResponseWriter, r *http.Request) {
+		upstream.Add(1)
+		if r.Host == "login.microsoftonline.com" {
+			io.WriteString(w, `{"access_token":"new-token","refresh_token":"new-refresh","expires_in":3600,"token_type":"Bearer"}`)
+		} else {
+			io.WriteString(w, `{"id":"owner","mail":"owner@example.test"}`)
+		}
+	})
+	front := endpoint(t, f)
+	client := front.Client()
+	client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+	v, err := f.Store.Snapshot(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	post := func(action string, form url.Values) *http.Response {
+		t.Helper()
+		req, err := http.NewRequest("POST", front.URL+"/admin/"+v.Settings.AdminSecret+"/"+action, strings.NewReader(form.Encode()))
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		res, err := client.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		res.Body.Close()
+		if res.StatusCode != http.StatusSeeOther {
+			t.Fatalf("%s: %d", action, res.StatusCode)
+		}
+		return res
+	}
+	flow := post("connect", url.Values{"csrf": {v.Settings.CSRF}})
+	authorize, err := url.Parse(flow.Header.Get("Location"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	rotated := post("rotate", url.Values{"csrf": {v.Settings.CSRF}, "target": {"admin"}})
+	if rotated.Header.Get("Location") == "/admin/"+v.Settings.AdminSecret {
+		t.Fatal("admin credential did not rotate")
+	}
+	req, err := http.NewRequest("GET", front.URL+"/auth/microsoft/callback?state="+authorize.Query().Get("state")+"&code=old-flow", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.AddCookie(flow.Cookies()[0])
+	res, err := client.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusConflict || res.Header.Get("Location") != "" || upstream.Load() != 0 {
+		t.Fatalf("old flow survived admin rotation: status=%d, upstream=%d", res.StatusCode, upstream.Load())
+	}
+}

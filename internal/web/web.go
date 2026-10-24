@@ -27,6 +27,7 @@ var tmpl = template.Must(template.New("settings").Parse(page))
 type state struct {
 	Verifier string
 	Browser  string
+	CSRF     string
 	Epoch    int64
 	Expires  time.Time
 }
@@ -136,7 +137,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			httpapi.Failure(w, microsoft.E(429, "too_many_authorization_flows"))
 			return
 		}
-		h.states[opaque] = state{verifier, browser, v.Epoch, time.Now().Add(10 * time.Minute)}
+		h.states[opaque] = state{Verifier: verifier, Browser: browser, CSRF: v.Settings.CSRF, Epoch: v.Epoch, Expires: time.Now().Add(10 * time.Minute)}
 		h.mu.Unlock()
 		http.SetCookie(w, &http.Cookie{Name: "mstodo_oauth", Value: browser, Path: "/auth/microsoft/callback", MaxAge: 600, HttpOnly: true, Secure: strings.HasPrefix(h.Base, "https://"), SameSite: http.SameSiteLaxMode})
 		http.Redirect(w, r, microsoft.AuthorizeURL(v.Settings, h.Base+"/auth/microsoft/callback", opaque, verifier), http.StatusSeeOther)
@@ -215,7 +216,7 @@ func (h *Handler) callback(w http.ResponseWriter, r *http.Request) {
 		httpapi.Failure(w, err)
 		return
 	}
-	if v.Epoch != flow.Epoch {
+	if v.Epoch != flow.Epoch || !httpapi.Equal(v.Settings.CSRF, flow.CSRF) {
 		httpapi.Failure(w, microsoft.E(409, "settings_changed_restart_authorization"))
 		return
 	}
